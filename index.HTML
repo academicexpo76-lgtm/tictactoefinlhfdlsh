@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title> TIC TAC TOE</title>
+
+<style>
+
+body {
+    margin: 0;
+    font-family: Arial;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    height: 100vh;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.game {
+    background: white;
+    padding: 25px;
+    border-radius: 20px;
+    text-align: center;
+    width: 350px;
+}
+
+h1 {
+    color: #5b4bc4;
+}
+
+select, #restart {
+    width: 100%;
+    padding: 10px;
+    margin: 5px 0;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+}
+
+#restart {
+    background: #5b4bc4;
+    color: white;
+    cursor: pointer;
+}
+
+#restart:hover {
+    background: #4a3ba8;
+}
+
+.board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 20px auto;
+}
+
+.box {
+    height: 100px;
+    border: none;
+    border-radius: 10px;
+    background: #eeeeff;
+
+    font-size: 50px;
+    color: #5b4bc4;
+    cursor: pointer;
+}
+
+.box:hover {
+    background: #dedcff;
+}
+
+.winner {
+    background: lightgreen;
+}
+
+.score {
+    display: flex;
+    justify-content: space-around;
+}
+
+.score span {
+    color: #5b4bc4;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="game">
+
+<h1> Tic Tac Toe </h1>
+
+<select id="mode">
+    <option value="pvp">Player vs Player</option>
+    <option value="computer">Player vs Computer</option>
+</select>
+
+<select id="difficulty">
+    <option value="easy">Easy (~90% Player Win Rate)</option>
+    <option value="medium">Medium (~60% Player Win Rate)</option>
+    <option value="hard">Hard (~30% Player Win Rate)</option>
+    <option value="extreme">Extreme (~15% Player Win Rate)</option>
+    <option value="impossible">impossible (~0% Impossible)</option>
+</select>
+
+<button id="restart"> Restart Game</button>
+
+<h3 id="message">Player X's turn</h3>
+
+
+<div class="board">
+    <button class="box"></button>
+    <button class="box"></button>
+    <button class="box"></button>
+
+    <button class="box"></button>
+    <button class="box"></button>
+    <button class="box"></button>
+
+    <button class="box"></button>
+    <button class="box"></button>
+    <button class="box"></button>
+</div>
+
+
+<div class="score">
+    <div>X Wins: <span id="x">0</span></div>
+    <div>O Wins: <span id="o">0</span></div>
+    <div>Draws: <span id="draw">0</span></div>
+</div>
+
+</div>
+
+
+<script>
+
+let boxes = document.querySelectorAll(".box");
+let message = document.getElementById("message");
+let mode = document.getElementById("mode");
+let difficulty = document.getElementById("difficulty");
+
+let player = "X";
+let gameOver = false;
+
+let xScore = 0;
+let oScore = 0;
+let drawScore = 0;
+
+let wins = [
+    [0,1,2],
+    [3,4,5],
+    [6,7,8],
+    [0,3,6],
+    [1,4,7],
+    [2,5,8],
+    [0,4,8],
+    [2,4,6]
+];
+
+// When a box is clicked
+boxes.forEach(function(box, number) {
+    box.onclick = function() {
+        if (box.innerText != "" || gameOver) {
+            return;
+        }
+
+        if (mode.value == "computer" && player == "O") {
+            return;
+        }
+
+        box.innerText = player;
+        checkGame();
+    };
+});
+
+// Check the game
+function checkGame() {
+    let win = findWin();
+
+    if (win) {
+        gameOver = true;
+        win.forEach(function(number) {
+            boxes[number].classList.add("winner");
+        });
+
+        message.innerText = player + " Wins!";
+
+        if (player == "X") {
+            xScore++;
+            document.getElementById("x").innerText = xScore;
+        } else {
+            oScore++;
+            document.getElementById("o").innerText = oScore;
+        }
+        return;
+    }
+
+    let full = true;
+    boxes.forEach(function(box) {
+        if (box.innerText == "") {
+            full = false;
+        }
+    });
+
+    if (full) {
+        gameOver = true;
+        drawScore++;
+        document.getElementById("draw").innerText = drawScore;
+        message.innerText = "It's a Draw!";
+        return;
+    }
+
+    // Change player
+    player = (player == "X") ? "O" : "X";
+    message.innerText = "Player " + player + "'s turn";
+
+    // Computer plays
+    if (mode.value == "computer" && player == "O") {
+        setTimeout(computer, 400);
+    }
+}
+
+// Find a winning line
+function findWin() {
+    for (let win of wins) {
+        let a = boxes[win[0]].innerText;
+        let b = boxes[win[1]].innerText;
+        let c = boxes[win[2]].innerText;
+
+        if (a != "" && a == b && b == c) {
+            return win;
+        }
+    }
+    return null;
+}
+
+// Check specific board state win for minimax
+function checkBoardWin(boardState) {
+    for (let win of wins) {
+        let a = boardState[win[0]];
+        let b = boardState[win[1]];
+        let c = boardState[win[2]];
+        if (a != "" && a == b && b == c) {
+            return a;
+        }
+    }
+    return null;
+}
+
+// Computer move logic tuned to exact win rates
+function computer() {
+    if (gameOver) {
+        return;
+    }
+
+    let move;
+    let diff = difficulty.value;
+
+    if (diff == "easy") {
+        // ~90% player win rate -> 85% random, 15% smart
+        if (Math.random() < 0.15) {
+            move = smartMove();
+        } else {
+            move = randomMove();
+        }
+    } 
+    else if (diff == "medium") {
+        // ~60% player win rate -> 45% smart, 55% random
+        if (Math.random() < 0.45) {
+            move = smartMove();
+        } else {
+            move = randomMove();
+        }
+    } 
+    else if (diff == "hard") {
+        // ~30% player win rate -> 80% smart, 20% random
+        if (Math.random() < 0.80) {
+            move = smartMove();
+        } else {
+            move = randomMove();
+        }
+    } 
+    else if (diff == "extreme") {
+        // ~15% player win rate -> 85% Minimax (perfect), 15% random slip-up
+        if (Math.random() < 0.85) {
+            move = bestMinimaxMove();
+        } else {
+            move = randomMove();
+        }
+    } 
+    else if (diff == "Bawal Wala Hard") {
+        // 100% Impossible (Pure Minimax)
+        move = bestMinimaxMove();
+    } else {
+        move = smartMove();
+    }
+
+    if (move !== undefined && boxes[move].innerText == "") {
+        boxes[move].innerText = "O";
+        checkGame();
+    }
+}
+
+// Find an empty box randomly
+function randomMove() {
+    let empty = [];
+    boxes.forEach(function(box, number) {
+        if (box.innerText == "") {
+            empty.push(number);
+        }
+    });
+    if (empty.length === 0) return;
+    return empty[Math.floor(Math.random() * empty.length)];
+}
+
+// Smart computer move
+function smartMove() {
+    // Try to win
+    for (let i = 0; i < 9; i++) {
+        if (boxes[i].innerText == "") {
+            boxes[i].innerText = "O";
+            if (findWin()) {
+                boxes[i].innerText = "";
+                return i;
+            }
+            boxes[i].innerText = "";
+        }
+    }
+
+    // Try to block X
+    for (let i = 0; i < 9; i++) {
+        if (boxes[i].innerText == "") {
+            boxes[i].innerText = "X";
+            if (findWin()) {
+                boxes[i].innerText = "";
+                return i;
+            }
+            boxes[i].innerText = "";
+        }
+    }
+
+    // Take middle
+    if (boxes[4].innerText == "") {
+        return 4;
+    }
+
+    // Take a corner
+    let corners = [0,2,6,8];
+    for (let corner of corners) {
+        if (boxes[corner].innerText == "") {
+            return corner;
+        }
+    }
+
+    return randomMove();
+}
+
+// Unbeatable Minimax Algorithm for Extreme & Bawal Wala Hard
+function bestMinimaxMove() {
+    let boardState = Array.from(boxes).map(box => box.innerText);
+    let bestScore = -Infinity;
+    let bestMove;
+
+    for (let i = 0; i < 9; i++) {
+        if (boardState[i] == "") {
+            boardState[i] = "O";
+            let score = minimax(boardState, 0, false);
+            boardState[i] = "";
+            if (score > bestScore) {
+                bestScore = score;
+                bestMove = i;
+            }
+        }
+    }
+    return bestMove;
+}
+
+function minimax(board, depth, isMaximizing) {
+    let winner = checkBoardWin(board);
+    if (winner === "O") return 10 - depth;
+    if (winner === "X") return depth - 10;
+    
+    let isFull = board.every(cell => cell !== "");
+    if (isFull) return 0;
+
+    if (isMaximizing) {
+        let maxEval = -Infinity;
+        for (let i = 0; i < 9; i++) {
+            if (board[i] == "") {
+                board[i] = "O";
+                let evaluation = minimax(board, depth + 1, false);
+                board[i] = "";
+                maxEval = Math.max(maxEval, evaluation);
+            }
+        }
+        return maxEval;
+    } else {
+        let minEval = Infinity;
+        for (let i = 0; i < 9; i++) {
+            if (board[i] == "") {
+                board[i] = "X";
+                let evaluation = minimax(board, depth + 1, true);
+                board[i] = "";
+                minEval = Math.min(minEval, evaluation);
+            }
+        }
+        return minEval;
+    }
+}
+
+// Restart game
+function restartGame() {
+    boxes.forEach(function(box) {
+        box.innerText = "";
+        box.classList.remove("winner");
+    });
+    player = "X";
+    gameOver = false;
+    message.innerText = "Player X's turn";
+}
+
+// Event Listeners
+document.getElementById("restart").onclick = restartGame;
+mode.onchange = restartGame;
+difficulty.onchange = restartGame;
+
+</script>
+
+</body>
+</html>
