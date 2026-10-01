@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#667eea">
+  <title>Tic Tac Toe</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .game {
+      background: #fff;
+      padding: 25px;
+      border-radius: 20px;
+      text-align: center;
+      width: min(100%, 390px);
+      box-shadow: 0 12px 35px rgba(0, 0, 0, .18);
+    }
+    h1 { color: #5b4bc4; margin-top: 0; }
+    select, #restart {
+      width: 100%;
+      padding: 11px;
+      margin: 5px 0;
+      border: 0;
+      border-radius: 10px;
+      font-size: 16px;
+    }
+    select { background: #f2f1ff; color: #29234f; }
+    #restart {
+      background: #5b4bc4;
+      color: #fff;
+      cursor: pointer;
+    }
+    #restart:hover { background: #4a3ba8; }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin: 20px auto;
+    }
+    .box {
+      aspect-ratio: 1;
+      min-width: 0;
+      border: 0;
+      border-radius: 10px;
+      background: #eeeeff;
+      font-size: clamp(36px, 12vw, 50px);
+      font-weight: 700;
+      color: #5b4bc4;
+      cursor: pointer;
+    }
+    .box:hover { background: #dedcff; }
+    .box:focus-visible, select:focus-visible, #restart:focus-visible {
+      outline: 3px solid #222;
+      outline-offset: 2px;
+    }
+    .box.winner { background: lightgreen; }
+    .score {
+      display: flex;
+      justify-content: space-around;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .score span { color: #5b4bc4; font-weight: 700; }
+    #message { min-height: 1.3em; }
+    @media (max-width: 360px) {
+      .game { padding: 18px; }
+      .score { font-size: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="game">
+    <h1>Tic Tac Toe</h1>
+
+    <label for="mode" class="sr-only">Game mode</label>
+    <select id="mode" aria-label="Game mode">
+      <option value="pvp">Player vs Player</option>
+      <option value="computer">Player vs Computer</option>
+    </select>
+
+    <label for="difficulty" class="sr-only">Computer difficulty</label>
+    <select id="difficulty" aria-label="Computer difficulty">
+      <option value="easy">Easy</option>
+      <option value="medium">Medium</option>
+      <option value="hard">Hard</option>
+      <option value="extreme">Extreme</option>
+      <option value="impossible">Impossible (unbeatable)</option>
+    </select>
+
+    <button id="restart" type="button">Restart Game</button>
+    <h3 id="message" aria-live="polite">Player X's turn</h3>
+
+    <div class="board" role="group" aria-label="Tic Tac Toe board">
+      <button class="box" type="button" aria-label="Square 1"></button>
+      <button class="box" type="button" aria-label="Square 2"></button>
+      <button class="box" type="button" aria-label="Square 3"></button>
+      <button class="box" type="button" aria-label="Square 4"></button>
+      <button class="box" type="button" aria-label="Square 5"></button>
+      <button class="box" type="button" aria-label="Square 6"></button>
+      <button class="box" type="button" aria-label="Square 7"></button>
+      <button class="box" type="button" aria-label="Square 8"></button>
+      <button class="box" type="button" aria-label="Square 9"></button>
+    </div>
+
+    <div class="score" aria-label="Score">
+      <div>X Wins: <span id="x">0</span></div>
+      <div>O Wins: <span id="o">0</span></div>
+      <div>Draws: <span id="draw">0</span></div>
+    </div>
+  </main>
+
+  <script>
+    "use strict";
+
+    const boxes = Array.from(document.querySelectorAll(".box"));
+    const message = document.getElementById("message");
+    const mode = document.getElementById("mode");
+    const difficulty = document.getElementById("difficulty");
+    const xDisplay = document.getElementById("x");
+    const oDisplay = document.getElementById("o");
+    const drawDisplay = document.getElementById("draw");
+
+    let player = "X";
+    let gameOver = false;
+    let computerThinking = false;
+    let computerTimer = null;
+    let xScore = 0;
+    let oScore = 0;
+    let drawScore = 0;
+
+    const wins = [
+      [0, 1, 2], [3, 4, 5], [6, 7, 8],
+      [0, 3, 6], [1, 4, 7], [2, 5, 8],
+      [0, 4, 8], [2, 4, 6]
+    ];
+
+    function getBoard() {
+      return boxes.map(box => box.textContent);
+    }
+
+    function findWin(board = getBoard()) {
+      for (const line of wins) {
+        const [a, b, c] = line;
+        if (board[a] && board[a] === board[b] && board[b] === board[c]) {
+          return line;
+        }
+      }
+      return null;
+    }
+
+    function finishIfNeeded() {
+      const winningLine = findWin();
+      if (winningLine) {
+        gameOver = true;
+        winningLine.forEach(index => boxes[index].classList.add("winner"));
+        message.textContent = player + " Wins!";
+        if (player === "X") {
+          xScore++;
+          xDisplay.textContent = xScore;
+        } else {
+          oScore++;
+          oDisplay.textContent = oScore;
+        }
+        return true;
+      }
+
+      if (getBoard().every(cell => cell !== "")) {
+        gameOver = true;
+        drawScore++;
+        drawDisplay.textContent = drawScore;
+        message.textContent = "It's a Draw!";
+        return true;
+      }
+      return false;
+    }
+
+    function playMove(index) {
+      if (gameOver || computerThinking || boxes[index].textContent !== "") return;
+      if (mode.value === "computer" && player === "O") return;
+
+      boxes[index].textContent = player;
+      boxes[index].setAttribute("aria-label", "Square " + (index + 1) + ": " + player);
+
+      if (finishIfNeeded()) return;
+
+      player = player === "X" ? "O" : "X";
+      message.textContent = "Player " + player + "'s turn";
+
+      if (mode.value === "computer" && player === "O") {
+        computerThinking = true;
+        boxes.forEach(box => box.disabled = true);
+        computerTimer = window.setTimeout(computerMove, 350);
+      }
+    }
+
+    boxes.forEach((box, index) => {
+      box.addEventListener("click", () => playMove(index));
+    });
+
+    function randomMove(board = getBoard()) {
+      const empty = [];
+      board.forEach((cell, index) => {
+        if (cell === "") empty.push(index);
+      });
+      if (!empty.length) return undefined;
+      return empty[Math.floor(Math.random() * empty.length)];
+    }
+
+    function smartMove() {
+      let board = getBoard();
+
+      // Win immediately if possible.
+      for (let i = 0; i < 9; i++) {
+        if (board[i] !== "") continue;
+        board[i] = "O";
+        const winsNow = findWin(board);
+        board[i] = "";
+        if (winsNow) return i;
+      }
+
+      // Block an immediate player win.
+      for (let i = 0; i < 9; i++) {
+        if (board[i] !== "") continue;
+        board[i] = "X";
+        const opponentWins = findWin(board);
+        board[i] = "";
+        if (opponentWins) return i;
+      }
+
+      if (board[4] === "") return 4;
+
+      for (const corner of [0, 2, 6, 8]) {
+        if (board[corner] === "") return corner;
+      }
+
+      return randomMove(board);
+    }
+
+    function minimax(board, depth, isMaximizing) {
+      const winnerLine = findWin(board);
+      if (winnerLine) {
+        const winner = board[winnerLine[0]];
+        if (winner === "O") return 10 - depth;
+        if (winner === "X") return depth - 10;
+      }
+
+      if (board.every(cell => cell !== "")) return 0;
+
+      if (isMaximizing) {
+        let best = -Infinity;
+        for (let i = 0; i < 9; i++) {
+          if (board[i] !== "") continue;
+          board[i] = "O";
+          best = Math.max(best, minimax(board, depth + 1, false));
+          board[i] = "";
+        }
+        return best;
+      }
+
+      let best = Infinity;
+      for (let i = 0; i < 9; i++) {
+        if (board[i] !== "") continue;
+        board[i] = "X";
+        best = Math.min(best, minimax(board, depth + 1, true));
+        board[i] = "";
+      }
+      return best;
+    }
+
+    function bestMinimaxMove() {
+      const board = getBoard();
+      let bestScore = -Infinity;
+      let bestMove;
+
+      for (let i = 0; i < 9; i++) {
+        if (board[i] !== "") continue;
+        board[i] = "O";
+        const score = minimax(board, 0, false);
+        board[i] = "";
+        if (score > bestScore) {
+          bestScore = score;
+          bestMove = i;
+        }
+      }
+      return bestMove;
+    }
+
+    function computerMove() {
+      computerTimer = null;
+      if (gameOver || mode.value !== "computer" || player !== "O") {
+        computerThinking = false;
+        boxes.forEach(box => box.disabled = false);
+        return;
+      }
+
+      let move;
+      switch (difficulty.value) {
+        case "easy":
+          move = Math.random() < 0.15 ? smartMove() : randomMove();
+          break;
+        case "medium":
+          move = Math.random() < 0.45 ? smartMove() : randomMove();
+          break;
+        case "hard":
+          move = Math.random() < 0.80 ? smartMove() : randomMove();
+          break;
+        case "extreme":
+          move = Math.random() < 0.85 ? bestMinimaxMove() : randomMove();
+          break;
+        case "impossible":
+          // Correctly wired: Impossible always uses perfect minimax play.
+          move = bestMinimaxMove();
+          break;
+        default:
+          move = smartMove();
+      }
+
+      if (move !== undefined && boxes[move].textContent === "") {
+        boxes[move].textContent = "O";
+        boxes[move].setAttribute("aria-label", "Square " + (move + 1) + ": O");
+      }
+
+      computerThinking = false;
+      boxes.forEach(box => box.disabled = false);
+
+      if (finishIfNeeded()) return;
+
+      player = "X";
+      message.textContent = "Player X's turn";
+    }
+
+    function restartGame() {
+      if (computerTimer !== null) {
+        window.clearTimeout(computerTimer);
+        computerTimer = null;
+      }
+      boxes.forEach((box, index) => {
+        box.textContent = "";
+        box.classList.remove("winner");
+        box.disabled = false;
+        box.setAttribute("aria-label", "Square " + (index + 1));
+      });
+      player = "X";
+      gameOver = false;
+      computerThinking = false;
+      message.textContent = "Player X's turn";
+    }
+
+    document.getElementById("restart").addEventListener("click", restartGame);
+    mode.addEventListener("change", restartGame);
+    difficulty.addEventListener("change", restartGame);
+  </script>
+</body>
+</html>
